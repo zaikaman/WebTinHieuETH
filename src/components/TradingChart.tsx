@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { createChart, ColorType, IChartApi, ISeriesApi, CandlestickData, UTCTimestamp, SeriesMarker, Time } from 'lightweight-charts';
+import { createChart, ColorType, IChartApi, ISeriesApi, CandlestickData, UTCTimestamp, SeriesMarker, Time, PriceLineOptions } from 'lightweight-charts';
 import { binanceService } from '@/services/binance';
 
 interface MarketStats {
@@ -69,38 +69,98 @@ export default function TradingChart() {
     return () => clearInterval(interval);
   }, [timeframe]);
 
-  const addTradeMarkers = (trade: Trade) => {
+  const addTradePriceRanges = (trade: Trade) => {
     if (!candleSeriesRef.current) return;
 
-    // Entry marker
-    const entryMarker: SeriesMarker<Time> = {
-      time: trade.time as UTCTimestamp,
-      position: trade.type === 'LONG' ? 'belowBar' : 'aboveBar',
+    // Entry line
+    const entryLine: PriceLineOptions = {
+      price: trade.entry,
       color: trade.type === 'LONG' ? '#10b981' : '#ef4444',
-      shape: trade.type === 'LONG' ? 'arrowUp' : 'arrowDown',
-      text: `${trade.type} Entry @ ${trade.entry}`,
+      lineWidth: 2,
+      lineStyle: 2, // Dashed
+      axisLabelVisible: true,
+      title: `${trade.type} Entry`,
+      lineVisible: true,
+      axisLabelColor: trade.type === 'LONG' ? '#10b981' : '#ef4444',
+      axisLabelTextColor: '#ffffff'
     };
 
-    // Take profit markers
-    const tpMarkers: SeriesMarker<Time>[] = trade.takeProfit.map((tp, index) => ({
-      time: trade.time as UTCTimestamp,
-      position: 'aboveBar',
+    // Take profit lines
+    const tpLines: PriceLineOptions[] = trade.takeProfit.map((tp, index) => ({
+      price: tp,
       color: '#10b981',
-      shape: 'circle',
-      text: `TP${index + 1} @ ${tp}`,
+      lineWidth: 1,
+      lineStyle: 2,
+      axisLabelVisible: true,
+      title: `TP${index + 1}`,
+      lineVisible: true,
+      axisLabelColor: '#10b981',
+      axisLabelTextColor: '#ffffff'
     }));
 
-    // Stop loss marker
-    const slMarker: SeriesMarker<Time> = {
-      time: trade.time as UTCTimestamp,
-      position: 'belowBar',
+    // Stop loss line
+    const slLine: PriceLineOptions = {
+      price: trade.stopLoss,
       color: '#ef4444',
-      shape: 'circle',
-      text: `SL @ ${trade.stopLoss}`,
+      lineWidth: 1,
+      lineStyle: 2,
+      axisLabelVisible: true,
+      title: 'SL',
+      lineVisible: true,
+      axisLabelColor: '#ef4444',
+      axisLabelTextColor: '#ffffff'
     };
 
-    // Add all markers
-    candleSeriesRef.current.setMarkers([entryMarker, ...tpMarkers, slMarker]);
+    // Add price range area
+    const series = candleSeriesRef.current;
+    
+    if (trade.type === 'LONG') {
+      // Long: Green area from entry to highest TP
+      const highestTp = Math.max(...trade.takeProfit);
+      series.createPriceLine(entryLine);
+      series.createPriceLine(slLine);
+      tpLines.forEach(line => series.createPriceLine(line));
+
+      // Add green semi-transparent area
+      const areaSeries = chartRef.current?.addAreaSeries({
+        topColor: 'rgba(16, 185, 129, 0.2)',
+        bottomColor: 'rgba(16, 185, 129, 0.0)',
+        lineColor: 'rgba(16, 185, 129, 0.5)',
+        lineWidth: 1,
+      });
+      
+      if (areaSeries) {
+        const currentTime = Math.floor(Date.now() / 1000) as UTCTimestamp;
+        const futureTime = (currentTime + 86400) as UTCTimestamp; // 24 hours ahead
+        areaSeries.setData([
+          { time: currentTime, value: trade.entry },
+          { time: futureTime, value: trade.entry },
+        ]);
+      }
+    } else {
+      // Short: Red area from entry to lowest TP
+      const lowestTp = Math.min(...trade.takeProfit);
+      series.createPriceLine(entryLine);
+      series.createPriceLine(slLine);
+      tpLines.forEach(line => series.createPriceLine(line));
+
+      // Add red semi-transparent area
+      const areaSeries = chartRef.current?.addAreaSeries({
+        topColor: 'rgba(239, 68, 68, 0.0)',
+        bottomColor: 'rgba(239, 68, 68, 0.2)',
+        lineColor: 'rgba(239, 68, 68, 0.5)',
+        lineWidth: 1,
+      });
+      
+      if (areaSeries) {
+        const currentTime = Math.floor(Date.now() / 1000) as UTCTimestamp;
+        const futureTime = (currentTime + 86400) as UTCTimestamp; // 24 hours ahead
+        areaSeries.setData([
+          { time: currentTime, value: trade.entry },
+          { time: futureTime, value: trade.entry },
+        ]);
+      }
+    }
   };
 
   useEffect(() => {
@@ -151,7 +211,7 @@ export default function TradingChart() {
     chartRef.current = chart;
     candleSeriesRef.current = candleSeries;
 
-    // Example trade (you can modify this based on your needs)
+    // Example trade
     const exampleTrade: Trade = {
       time: Math.floor(Date.now() / 1000),
       type: 'LONG',
@@ -161,9 +221,9 @@ export default function TradingChart() {
       status: 'ACTIVE'
     };
 
-    // Add trade markers after data is loaded
+    // Add trade visualization after data is loaded
     setTimeout(() => {
-      addTradeMarkers(exampleTrade);
+      addTradePriceRanges(exampleTrade);
     }, 2000);
 
     // Resize handler
@@ -238,24 +298,38 @@ export default function TradingChart() {
           close: parseFloat(k.c),
         };
         candleSeriesRef.current.update(candle);
+
+        // Update stats when candle updates
+        setStats(prev => ({
+          ...prev,
+          price: k.c,
+          high: Math.max(parseFloat(prev.high), parseFloat(k.h)).toString(),
+          low: Math.min(parseFloat(prev.low), parseFloat(k.l)).toString(),
+        }));
       }
     });
 
+    // Subscribe to mark price updates (1 second intervals)
     binanceService.subscribeToMarkPrice(symbol, (data) => {
+      const markData = data.data;
       setStats(prev => ({
         ...prev,
-        markPrice: data.data.p,
-        indexPrice: data.data.i,
+        markPrice: markData.p,
+        indexPrice: markData.i,
       }));
     });
 
+    // Subscribe to 24h ticker updates
     binanceService.subscribeToMiniTicker(symbol, (data) => {
+      const tickerData = data.data;
       setStats(prev => ({
         ...prev,
-        price: data.data.c,
-        high: data.data.h,
-        low: data.data.l,
-        volume: data.data.v,
+        price: tickerData.c,
+        priceChange: (parseFloat(tickerData.c) - parseFloat(tickerData.o)).toString(),
+        priceChangePercent: ((parseFloat(tickerData.c) - parseFloat(tickerData.o)) / parseFloat(tickerData.o) * 100).toString(),
+        high: tickerData.h,
+        low: tickerData.l,
+        volume: tickerData.v,
       }));
     });
 
