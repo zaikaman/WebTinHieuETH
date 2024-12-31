@@ -45,10 +45,10 @@ export default function SignalsList() {
         </div>
         <div className="flex gap-2">
           <select className="px-3 py-1.5 rounded-lg bg-gray-700 text-gray-300 border-0 focus:ring-2 focus:ring-green-500">
-            <option value="all">Tất cả tín hiệu</option>
-            <option value="active">Đang hoạt động</option>
-            <option value="completed">Đã hoàn thành</option>
-            <option value="stopped">Đã dừng</option>
+            <option value="all">All Signals</option>
+            <option value="active">Active</option>
+            <option value="completed">Completed</option>
+            <option value="stopped">Stopped</option>
           </select>
         </div>
       </div>
@@ -57,12 +57,12 @@ export default function SignalsList() {
         <table className="min-w-full divide-y divide-gray-700">
           <thead>
             <tr>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Loại</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Giá vào</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Type</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Entry Price</th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Take Profit</th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Stop Loss</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Thời gian</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Trạng thái</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Time</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Status</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-700">
