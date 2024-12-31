@@ -80,7 +80,7 @@ class BinanceService {
 
         // Resubscribe to existing streams
         const streams = Array.from(this.subscribers.keys());
-        if (streams.length > 0) {
+        if (streams.length > 0 && this.ws?.readyState === WebSocket.OPEN) {
           console.log('[WS] Resubscribing to streams:', streams);
           this.ws.send(JSON.stringify({
             method: 'SUBSCRIBE',

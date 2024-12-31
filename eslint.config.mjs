@@ -1,6 +1,5 @@
-export default {
-  root: true,
-  extends: ['next/core-web-vitals'],
+export default [{
+  files: ['**/*.ts', '**/*.tsx'],
   rules: {
     '@typescript-eslint/no-unused-vars': 'off',
     '@typescript-eslint/no-explicit-any': 'off',
@@ -66,4 +65,4 @@ export default {
     'no-unexpected-multiline': 'off',
     'use-isnan': 'off'
   }
-};
+}];
