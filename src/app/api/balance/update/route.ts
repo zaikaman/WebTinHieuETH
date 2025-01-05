@@ -112,26 +112,28 @@ export async function POST() {
 
     // Update balance record
     await pool.query(`
-      INSERT INTO balance (
-        total_balance,
-        available_balance,
-        total_pnl_usd,
-        total_pnl_percentage,
-        daily_pnl_usd,
-        daily_pnl_percentage,
-        total_trades,
-        winning_trades,
-        losing_trades,
-        win_rate,
-        average_win_usd,
-        average_loss_usd,
-        risk_reward_ratio,
-        max_drawdown,
-        current_drawdown,
-        peak_balance,
-        total_fees_paid,
-        total_funding_paid
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
+      UPDATE balance 
+      SET 
+        total_balance = $1,
+        available_balance = $2,
+        total_pnl_usd = $3,
+        total_pnl_percentage = $4,
+        daily_pnl_usd = $5,
+        daily_pnl_percentage = $6,
+        total_trades = $7,
+        winning_trades = $8,
+        losing_trades = $9,
+        win_rate = $10,
+        average_win_usd = $11,
+        average_loss_usd = $12,
+        risk_reward_ratio = $13,
+        max_drawdown = $14,
+        current_drawdown = $15,
+        peak_balance = $16,
+        total_fees_paid = $17,
+        total_funding_paid = $18,
+        timestamp = CURRENT_TIMESTAMP
+      WHERE id = (SELECT id FROM balance ORDER BY timestamp DESC LIMIT 1)
     `, [
       availableBalance,
       availableBalance,
