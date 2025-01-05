@@ -12,6 +12,7 @@ interface Signal {
   id: string;
   type: string;
   entry_price: number;
+  exit_price: number;
   take_profit: number[];
   stop_loss: number;
   timestamp: string;
@@ -48,12 +49,12 @@ export async function POST() {
     today.setHours(0, 0, 0, 0);
 
     signals.forEach(signal => {
-      if (signal.status === 'STOPPED') {
+      if (signal.status === 'STOPPED' && signal.exit_price) {
         totalTrades++;
         
         // Calculate PnL for this trade using fixed initial balance
         const positionSize = (INITIAL_BALANCE * signal.risk_percent) / 100;
-        const priceDiff = signal.current_price - signal.entry_price;
+        const priceDiff = signal.exit_price - signal.entry_price;
         const pnl = signal.type === 'LONG' ? 
           (priceDiff / signal.entry_price) * positionSize :
           (-priceDiff / signal.entry_price) * positionSize;

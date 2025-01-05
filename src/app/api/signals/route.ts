@@ -1,62 +1,57 @@
 import { NextResponse } from 'next/server';
 import { Pool } from 'pg';
 
-// Create a new pool for each request
-const getPool = () => {
-  return new Pool({
-    connectionString: process.env.DATABASE_URL,
-    ssl: {
-      rejectUnauthorized: false
-    },
-    // Add connection limits suitable for serverless
-    max: 1,
-    idleTimeoutMillis: 120000
-  });
-};
-
-// Helper function to format numbers to 2 decimal places
-function formatNumber(value: any): number {
-  if (value === null || value === undefined) return 0;
-  const num = typeof value === 'string' ? parseFloat(value) : value;
-  return Number(Number(num).toFixed(2));
-}
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: {
+    rejectUnauthorized: false
+  }
+});
 
 export async function GET(request: Request) {
-  const pool = getPool();
   try {
-    // Get status from query params
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status');
 
-    let query = 'SELECT * FROM signals';
-    let values: string[] = [];
+    let query = `
+      SELECT s.*, 
+        CASE 
+          WHEN s.status = 'STOPPED' AND s.exit_price IS NOT NULL THEN
+            CASE 
+              WHEN s.type = 'LONG' THEN (s.exit_price - s.entry_price) * (10 * s.risk_percent / 100)
+              ELSE (s.entry_price - s.exit_price) * (10 * s.risk_percent / 100)
+            END
+          ELSE NULL
+        END as profit
+      FROM signals s
+    `;
 
     if (status && status !== 'all') {
-      query += ' WHERE status = $1';
-      values.push(status.toUpperCase());
+      query += ` WHERE status = $1`;
     }
 
-    query += ' ORDER BY timestamp DESC';
+    query += ` ORDER BY timestamp DESC`;
 
-    const result = await pool.query(query, values);
-    
-    // Format numbers in the response
-    const formattedRows = result.rows.map(row => ({
-      ...row,
-      entry_price: formatNumber(row.entry_price),
-      take_profit: Array.isArray(row.take_profit) 
-        ? row.take_profit.map((tp: any) => formatNumber(tp))
-        : [],
-      stop_loss: formatNumber(row.stop_loss),
-      current_price: formatNumber(row.current_price),
-      risk_percent: formatNumber(row.risk_percent)
-    }));
+    const result = await pool.query(
+      query,
+      status && status !== 'all' ? [status.toUpperCase()] : []
+    );
 
-    await pool.end(); // Important: close the pool after use
-    return NextResponse.json(formattedRows);
+    // Update profit in database for completed trades
+    const updatePromises = result.rows
+      .filter(signal => signal.status === 'STOPPED' && signal.exit_price && signal.profit !== null)
+      .map(signal => 
+        pool.query(
+          `UPDATE signals SET profit = $1 WHERE id = $2 AND (profit IS NULL OR profit != $1)`,
+          [Number(signal.profit), signal.id]
+        )
+      );
+
+    await Promise.all(updatePromises);
+
+    return NextResponse.json(result.rows);
   } catch (error) {
     console.error('Error fetching signals:', error);
-    await pool.end(); // Make sure to close the pool even if there's an error
     return NextResponse.json({ error: 'Failed to fetch signals' }, { status: 500 });
   }
 } 

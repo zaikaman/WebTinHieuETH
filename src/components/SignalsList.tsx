@@ -6,13 +6,20 @@ interface Signal {
   id: string;
   type: string;
   entry_price: number;
+  exit_price: number;
   take_profit: number[];
   stop_loss: number;
   timestamp: string;
   status: string;
   risk_percent: number;
   current_price: number;
+  profit: number | null;
 }
+
+const formatNumber = (num: number | null | undefined): string => {
+  if (num === null || num === undefined) return '0.00';
+  return Number(num).toFixed(2);
+};
 
 export default function SignalsList() {
   const [signals, setSignals] = useState<Signal[]>([]);
@@ -92,9 +99,11 @@ export default function SignalsList() {
             <tr>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Type</th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Entry Price</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Exit Price</th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Take Profit</th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Stop Loss</th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Risk</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Profit</th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Time</th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Status</th>
             </tr>
@@ -112,20 +121,42 @@ export default function SignalsList() {
                   </span>
                 </td>
                 <td className="px-4 py-4">
-                  <span className="text-white font-medium">${signal.entry_price}</span>
+                  <span className="text-white font-medium">${formatNumber(signal.entry_price)}</span>
+                </td>
+                <td className="px-4 py-4">
+                  {signal.status === 'STOPPED' && signal.exit_price ? (
+                    <span className={`font-medium ${
+                      signal.type === 'LONG' 
+                        ? Number(signal.exit_price) > Number(signal.entry_price) ? 'text-green-400' : 'text-red-400'
+                        : Number(signal.exit_price) < Number(signal.entry_price) ? 'text-green-400' : 'text-red-400'
+                    }`}>
+                      ${formatNumber(signal.exit_price)}
+                    </span>
+                  ) : (
+                    <span className="text-gray-500">-</span>
+                  )}
                 </td>
                 <td className="px-4 py-4">
                   <div className="flex gap-2">
                     {signal.take_profit.map((tp, index) => (
-                      <span key={index} className="text-green-400 font-medium">${tp}</span>
+                      <span key={index} className="text-green-400 font-medium">${formatNumber(tp)}</span>
                     ))}
                   </div>
                 </td>
                 <td className="px-4 py-4">
-                  <span className="text-red-400 font-medium">${signal.stop_loss}</span>
+                  <span className="text-red-400 font-medium">${formatNumber(signal.stop_loss)}</span>
                 </td>
                 <td className="px-4 py-4">
-                  <span className="text-yellow-400 font-medium">{signal.risk_percent}%</span>
+                  <span className="text-yellow-400 font-medium">{formatNumber(signal.risk_percent)}%</span>
+                </td>
+                <td className="px-4 py-4">
+                  {signal.status === 'STOPPED' && signal.profit !== null ? (
+                    <span className={`font-medium ${signal.profit >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                      ${formatNumber(signal.profit)}
+                    </span>
+                  ) : (
+                    <span className="text-gray-500">-</span>
+                  )}
                 </td>
                 <td className="px-4 py-4 text-gray-300">
                   {new Date(signal.timestamp).toLocaleString()}
