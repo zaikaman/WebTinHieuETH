@@ -10,8 +10,10 @@
   },
   "dependencies": {
     "@binance/connector": "^3.6.0",
+    "@types/pg": "^8.11.10",
     "lightweight-charts": "^4.2.2",
     "next": "15.1.3",
+    "pg": "^8.13.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },
