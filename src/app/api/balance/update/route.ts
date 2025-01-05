@@ -36,6 +36,7 @@ export async function POST() {
       LIMIT 1
     `);
     const currentBalance = balanceResult.rows[0];
+    const initialBalance = currentBalance.total_balance; // Store initial balance for calculations
 
     // Calculate statistics
     let totalPnlUsd = 0;
@@ -57,8 +58,8 @@ export async function POST() {
       if (signal.status === 'STOPPED') {
         totalTrades++;
         
-        // Calculate PnL for this trade
-        const positionSize = (currentBalance.total_balance * signal.risk_percent) / 100;
+        // Calculate PnL for this trade using initial balance
+        const positionSize = (initialBalance * signal.risk_percent) / 100;
         const priceDiff = signal.current_price - signal.entry_price;
         const pnl = signal.type === 'LONG' ? 
           (priceDiff / signal.entry_price) * positionSize :
@@ -87,7 +88,7 @@ export async function POST() {
         totalFeesUsd += tradeFee;
 
         // Update peak balance and drawdown
-        const currentTotalBalance = currentBalance.total_balance + totalPnlUsd - totalFeesUsd;
+        const currentTotalBalance = initialBalance + totalPnlUsd - totalFeesUsd;
         if (currentTotalBalance > peakBalance) {
           peakBalance = currentTotalBalance;
         }
@@ -104,11 +105,11 @@ export async function POST() {
     const averageWinUsd = winningTrades > 0 ? totalWinAmount / winningTrades : 0;
     const averageLossUsd = losingTrades > 0 ? totalLossAmount / losingTrades : 0;
     const riskRewardRatio = averageLossUsd > 0 ? averageWinUsd / averageLossUsd : 0;
-    const totalPnlPercentage = (totalPnlUsd / currentBalance.total_balance) * 100;
-    const dailyPnlPercentage = (dailyPnlUsd / currentBalance.total_balance) * 100;
+    const totalPnlPercentage = (totalPnlUsd / initialBalance) * 100;
+    const dailyPnlPercentage = (dailyPnlUsd / initialBalance) * 100;
 
-    // Calculate available balance (assuming all completed trades are closed)
-    const availableBalance = currentBalance.total_balance + totalPnlUsd - totalFeesUsd;
+    // Calculate available balance (using initial balance)
+    const availableBalance = initialBalance + totalPnlUsd - totalFeesUsd;
 
     // Update balance record
     await pool.query(`
