@@ -18,8 +18,8 @@ export async function GET(request: Request) {
         CASE 
           WHEN s.status = 'STOPPED' AND s.exit_price IS NOT NULL THEN
             CASE 
-              WHEN s.type = 'LONG' THEN (s.exit_price - s.entry_price) * (10 * s.risk_percent / 100)
-              ELSE (s.entry_price - s.exit_price) * (10 * s.risk_percent / 100)
+              WHEN s.type = 'LONG' THEN ((s.exit_price - s.entry_price) / s.entry_price) * (10 * s.risk_percent / 100)
+              ELSE ((s.entry_price - s.exit_price) / s.entry_price) * (10 * s.risk_percent / 100)
             END
           ELSE NULL
         END as profit
