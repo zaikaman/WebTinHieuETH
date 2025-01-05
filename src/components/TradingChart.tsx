@@ -146,7 +146,7 @@ export default function TradingChart() {
       lineWidth: 1,
       lineStyle: 2,
       axisLabelVisible: true,
-      title: `TP${index + 1}`,
+      title: trade.takeProfit.length === 1 ? 'TP' : `TP${index + 1}`,
       lineVisible: true,
       axisLabelColor: '#10b981',
       axisLabelTextColor: '#ffffff'
