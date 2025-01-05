@@ -1,9 +1,18 @@
 import { NextResponse } from 'next/server';
 import { Pool } from 'pg';
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-});
+// Create a new pool for each request
+const getPool = () => {
+  return new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: {
+      rejectUnauthorized: false
+    },
+    // Add connection limits suitable for serverless
+    max: 1,
+    idleTimeoutMillis: 120000
+  });
+};
 
 // Helper function to format numbers to 2 decimal places
 function formatNumber(value: any): number {
@@ -13,6 +22,7 @@ function formatNumber(value: any): number {
 }
 
 export async function GET(request: Request) {
+  const pool = getPool();
   try {
     // Get status from query params
     const { searchParams } = new URL(request.url);
@@ -42,9 +52,11 @@ export async function GET(request: Request) {
       risk_percent: formatNumber(row.risk_percent)
     }));
 
+    await pool.end(); // Important: close the pool after use
     return NextResponse.json(formattedRows);
   } catch (error) {
     console.error('Error fetching signals:', error);
+    await pool.end(); // Make sure to close the pool even if there's an error
     return NextResponse.json({ error: 'Failed to fetch signals' }, { status: 500 });
   }
 } 
