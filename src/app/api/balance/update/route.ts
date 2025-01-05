@@ -29,14 +29,7 @@ export async function POST() {
     `);
     const signals: Signal[] = signalsResult.rows;
 
-    // Get current balance record
-    const balanceResult = await pool.query(`
-      SELECT * FROM balance
-      ORDER BY timestamp DESC
-      LIMIT 1
-    `);
-    const currentBalance = balanceResult.rows[0];
-    const initialBalance = currentBalance.total_balance; // Store initial balance for calculations
+    const INITIAL_BALANCE = 10; // Fixed initial balance
 
     // Calculate statistics
     let totalPnlUsd = 0;
@@ -47,7 +40,7 @@ export async function POST() {
     let totalFeesUsd = 0;
     let maxDrawdown = 0;
     let currentDrawdown = 0;
-    let peakBalance = currentBalance.peak_balance;
+    let peakBalance = INITIAL_BALANCE;
     let totalWinAmount = 0;
     let totalLossAmount = 0;
 
@@ -58,8 +51,8 @@ export async function POST() {
       if (signal.status === 'STOPPED') {
         totalTrades++;
         
-        // Calculate PnL for this trade using initial balance
-        const positionSize = (initialBalance * signal.risk_percent) / 100;
+        // Calculate PnL for this trade using fixed initial balance
+        const positionSize = (INITIAL_BALANCE * signal.risk_percent) / 100;
         const priceDiff = signal.current_price - signal.entry_price;
         const pnl = signal.type === 'LONG' ? 
           (priceDiff / signal.entry_price) * positionSize :
@@ -88,7 +81,7 @@ export async function POST() {
         totalFeesUsd += tradeFee;
 
         // Update peak balance and drawdown
-        const currentTotalBalance = initialBalance + totalPnlUsd - totalFeesUsd;
+        const currentTotalBalance = INITIAL_BALANCE + totalPnlUsd - totalFeesUsd;
         if (currentTotalBalance > peakBalance) {
           peakBalance = currentTotalBalance;
         }
@@ -105,11 +98,11 @@ export async function POST() {
     const averageWinUsd = winningTrades > 0 ? totalWinAmount / winningTrades : 0;
     const averageLossUsd = losingTrades > 0 ? totalLossAmount / losingTrades : 0;
     const riskRewardRatio = averageLossUsd > 0 ? averageWinUsd / averageLossUsd : 0;
-    const totalPnlPercentage = (totalPnlUsd / initialBalance) * 100;
-    const dailyPnlPercentage = (dailyPnlUsd / initialBalance) * 100;
+    const totalPnlPercentage = (totalPnlUsd / INITIAL_BALANCE) * 100;
+    const dailyPnlPercentage = (dailyPnlUsd / INITIAL_BALANCE) * 100;
 
     // Calculate available balance (using initial balance)
-    const availableBalance = initialBalance + totalPnlUsd - totalFeesUsd;
+    const availableBalance = INITIAL_BALANCE + totalPnlUsd - totalFeesUsd;
 
     // Update balance record
     await pool.query(`
