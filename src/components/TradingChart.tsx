@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { createChart, ColorType, IChartApi, ISeriesApi, CandlestickData, UTCTimestamp, SeriesMarker, Time, PriceLineOptions } from 'lightweight-charts';
+import { createChart, ColorType, IChartApi, ISeriesApi, CandlestickData, UTCTimestamp, SeriesMarker, Time, PriceLineOptions, IPriceLine, ISeriesApi as SeriesApi } from 'lightweight-charts';
 import { binanceService } from '@/services/binance';
 
 interface MarketStats {
@@ -25,6 +25,18 @@ interface Trade {
   status: 'ACTIVE' | 'COMPLETED' | 'STOPPED';
 }
 
+interface Signal {
+  id: string;
+  type: string;
+  entry_price: number;
+  take_profit: number[];
+  stop_loss: number;
+  timestamp: string;
+  status: string;
+  risk_percent: number;
+  current_price: number;
+}
+
 const TIMEFRAME_MS: { [key: string]: number } = {
   '1m': 60000,
   '5m': 300000,
@@ -38,6 +50,8 @@ export default function TradingChart() {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const candleSeriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
+  const priceLineRefs = useRef<IPriceLine[]>([]);
+  const areaSeriesRefs = useRef<SeriesApi<"Area">[]>([]);
   const [timeframe, setTimeframe] = useState('1h');
   const [isLoading, setIsLoading] = useState(true);
   const [countdown, setCountdown] = useState('');
@@ -52,6 +66,46 @@ export default function TradingChart() {
     indexPrice: '0',
     fundingRate: '0'
   });
+
+  // Function to fetch active signals
+  const fetchActiveSignals = async () => {
+    try {
+      // Clear existing price lines
+      if (candleSeriesRef.current) {
+        priceLineRefs.current.forEach(line => {
+          candleSeriesRef.current?.removePriceLine(line);
+        });
+        priceLineRefs.current = [];
+      }
+      
+      // Clear existing area series
+      if (chartRef.current) {
+        areaSeriesRefs.current.forEach(series => {
+          chartRef.current?.removeSeries(series);
+        });
+        areaSeriesRefs.current = [];
+      }
+
+      const response = await fetch('/api/signals?status=ACTIVE');
+      if (!response.ok) throw new Error('Failed to fetch signals');
+      const signals: Signal[] = await response.json();
+
+      // Add each active signal to the chart
+      signals.forEach(signal => {
+        const trade: Trade = {
+          time: new Date(signal.timestamp).getTime() / 1000,
+          type: signal.type as 'LONG' | 'SHORT',
+          entry: signal.entry_price,
+          takeProfit: signal.take_profit,
+          stopLoss: signal.stop_loss,
+          status: signal.status as 'ACTIVE' | 'COMPLETED' | 'STOPPED'
+        };
+        addTradePriceRanges(trade);
+      });
+    } catch (error) {
+      console.error('Error fetching active signals:', error);
+    }
+  };
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -70,7 +124,7 @@ export default function TradingChart() {
   }, [timeframe]);
 
   const addTradePriceRanges = (trade: Trade) => {
-    if (!candleSeriesRef.current) return;
+    if (!candleSeriesRef.current || !chartRef.current) return;
 
     // Entry line
     const entryLine: PriceLineOptions = {
@@ -117,49 +171,57 @@ export default function TradingChart() {
     if (trade.type === 'LONG') {
       // Long: Green area from entry to highest TP
       const highestTp = Math.max(...trade.takeProfit);
-      series.createPriceLine(entryLine);
-      series.createPriceLine(slLine);
-      tpLines.forEach(line => series.createPriceLine(line));
+      const entryPriceLine = series.createPriceLine(entryLine);
+      const slPriceLine = series.createPriceLine(slLine);
+      priceLineRefs.current.push(entryPriceLine, slPriceLine);
+
+      tpLines.forEach(line => {
+        const priceLine = series.createPriceLine(line);
+        priceLineRefs.current.push(priceLine);
+      });
 
       // Add green semi-transparent area
-      const areaSeries = chartRef.current?.addAreaSeries({
+      const areaSeries = chartRef.current.addAreaSeries({
         topColor: 'rgba(16, 185, 129, 0.2)',
         bottomColor: 'rgba(16, 185, 129, 0.0)',
         lineColor: 'rgba(16, 185, 129, 0.5)',
         lineWidth: 1,
       });
       
-      if (areaSeries) {
-        const currentTime = Math.floor(Date.now() / 1000) as UTCTimestamp;
-        const futureTime = (currentTime + 86400) as UTCTimestamp; // 24 hours ahead
-        areaSeries.setData([
-          { time: currentTime, value: trade.entry },
-          { time: futureTime, value: trade.entry },
-        ]);
-      }
+      areaSeriesRefs.current.push(areaSeries);
+      const currentTime = Math.floor(Date.now() / 1000) as UTCTimestamp;
+      const futureTime = (currentTime + 86400) as UTCTimestamp; // 24 hours ahead
+      areaSeries.setData([
+        { time: currentTime, value: trade.entry },
+        { time: futureTime, value: trade.entry },
+      ]);
     } else {
       // Short: Red area from entry to lowest TP
       const lowestTp = Math.min(...trade.takeProfit);
-      series.createPriceLine(entryLine);
-      series.createPriceLine(slLine);
-      tpLines.forEach(line => series.createPriceLine(line));
+      const entryPriceLine = series.createPriceLine(entryLine);
+      const slPriceLine = series.createPriceLine(slLine);
+      priceLineRefs.current.push(entryPriceLine, slPriceLine);
+
+      tpLines.forEach(line => {
+        const priceLine = series.createPriceLine(line);
+        priceLineRefs.current.push(priceLine);
+      });
 
       // Add red semi-transparent area
-      const areaSeries = chartRef.current?.addAreaSeries({
+      const areaSeries = chartRef.current.addAreaSeries({
         topColor: 'rgba(239, 68, 68, 0.0)',
         bottomColor: 'rgba(239, 68, 68, 0.2)',
         lineColor: 'rgba(239, 68, 68, 0.5)',
         lineWidth: 1,
       });
       
-      if (areaSeries) {
-        const currentTime = Math.floor(Date.now() / 1000) as UTCTimestamp;
-        const futureTime = (currentTime + 86400) as UTCTimestamp; // 24 hours ahead
-        areaSeries.setData([
-          { time: currentTime, value: trade.entry },
-          { time: futureTime, value: trade.entry },
-        ]);
-      }
+      areaSeriesRefs.current.push(areaSeries);
+      const currentTime = Math.floor(Date.now() / 1000) as UTCTimestamp;
+      const futureTime = (currentTime + 86400) as UTCTimestamp; // 24 hours ahead
+      areaSeries.setData([
+        { time: currentTime, value: trade.entry },
+        { time: futureTime, value: trade.entry },
+      ]);
     }
   };
 
@@ -211,20 +273,8 @@ export default function TradingChart() {
     chartRef.current = chart;
     candleSeriesRef.current = candleSeries;
 
-    // Example trade
-    const exampleTrade: Trade = {
-      time: Math.floor(Date.now() / 1000),
-      type: 'LONG',
-      entry: 3340,
-      takeProfit: [3400, 3450, 3500],
-      stopLoss: 3300,
-      status: 'ACTIVE'
-    };
-
-    // Add trade visualization after data is loaded
-    setTimeout(() => {
-      addTradePriceRanges(exampleTrade);
-    }, 2000);
+    // Fetch and add active signals
+    fetchActiveSignals();
 
     // Resize handler
     const handleResize = () => {
@@ -279,6 +329,9 @@ export default function TradingChart() {
           indexPrice: marketData.indexPrice,
           fundingRate: marketData.fundingRate
         });
+
+        // Fetch active signals after chart data is loaded
+        await fetchActiveSignals();
       } catch (error) {
         console.error('Error fetching data:', error);
       } finally {
@@ -335,8 +388,12 @@ export default function TradingChart() {
 
     fetchInitialData();
 
+    // Set up polling for active signals
+    const signalsInterval = setInterval(fetchActiveSignals, 5000); // Poll every 5 seconds
+
     return () => {
       binanceService.unsubscribe(symbol, timeframe);
+      clearInterval(signalsInterval);
     };
   }, [timeframe]);
 
