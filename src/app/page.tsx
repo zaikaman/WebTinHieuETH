@@ -1,5 +1,6 @@
 import TradingChart from '@/components/TradingChart';
 import SignalsList from '@/components/SignalsList';
+import StatsPanel from '@/components/StatsPanel';
 
 export default function Home() {
   return (
@@ -24,6 +25,7 @@ export default function Home() {
         </div>
 
         <div className="grid grid-cols-1 gap-6">
+          <StatsPanel />
           <TradingChart />
           <SignalsList />
         </div>
