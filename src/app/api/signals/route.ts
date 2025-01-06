@@ -38,12 +38,8 @@ const updateBalanceStats = async () => {
     if (signal.status === 'STOPPED' && signal.exit_price) {
       totalTrades++;
       
-      // Calculate PnL for this trade
-      const positionSize = (INITIAL_BALANCE * signal.risk_percent) / 100;
-      const priceDiff = signal.exit_price - signal.entry_price;
-      const pnl = signal.type === 'LONG' ? 
-        ((priceDiff) / signal.entry_price) * positionSize :
-        ((-priceDiff) / signal.entry_price) * positionSize;
+      // Use the profit value from the database
+      const pnl = parseFloat(signal.profit);
 
       // Update total PnL
       totalPnlUsd += pnl;
@@ -64,6 +60,9 @@ const updateBalanceStats = async () => {
       }
 
       // Calculate fees (assuming 0.1% per trade)
+      const riskAmount = (INITIAL_BALANCE * parseFloat(signal.risk_percent)) / 100;
+      const stopLossDistance = Math.abs(parseFloat(signal.entry_price) - parseFloat(signal.stop_loss));
+      const positionSize = (riskAmount * parseFloat(signal.entry_price)) / stopLossDistance;
       const tradeFee = positionSize * 0.001;
       totalFeesUsd += tradeFee;
 
