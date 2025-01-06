@@ -59,11 +59,11 @@ const updateBalanceStats = async () => {
         totalLossAmount += Math.abs(pnl);
       }
 
-      // Calculate fees (assuming 0.1% per trade)
+      // Calculate fees (0.01% per trade, charged on both entry and exit)
       const riskAmount = (INITIAL_BALANCE * parseFloat(signal.risk_percent)) / 100;
       const stopLossDistance = Math.abs(parseFloat(signal.entry_price) - parseFloat(signal.stop_loss));
       const positionSize = (riskAmount * parseFloat(signal.entry_price)) / stopLossDistance;
-      const tradeFee = positionSize * 0.001;
+      const tradeFee = positionSize * 0.0001 * 2;  // 0.01% on entry and 0.01% on exit
       totalFeesUsd += tradeFee;
 
       // Update peak balance and drawdown
