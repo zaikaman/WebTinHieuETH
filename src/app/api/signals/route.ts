@@ -187,18 +187,30 @@ export async function GET(request: Request) {
     );
 
     if (stoppedSignals.length > 0) {
-      // Update profits first
-      await Promise.all(
-        stoppedSignals.map(signal => 
-          pool.query(
-            `UPDATE signals SET profit = $1 WHERE id = $2 AND (profit IS NULL OR profit != $1)`,
-            [Number(signal.profit), signal.id]
-          )
-        )
+      // Check which signals need profit updates
+      const profitUpdates = await Promise.all(
+        stoppedSignals.map(async signal => {
+          const currentProfit = await pool.query(
+            `SELECT profit FROM signals WHERE id = $1`,
+            [signal.id]
+          );
+          
+          // Only update if profit is null or different
+          if (!currentProfit.rows[0].profit || currentProfit.rows[0].profit !== signal.profit) {
+            await pool.query(
+              `UPDATE signals SET profit = $1 WHERE id = $2`,
+              [Number(signal.profit), signal.id]
+            );
+            return true;
+          }
+          return false;
+        })
       );
 
-      // Then update balance stats
-      await updateBalanceStats();
+      // Only update balance stats if any profits were actually updated
+      if (profitUpdates.some(updated => updated)) {
+        await updateBalanceStats();
+      }
     }
 
     return NextResponse.json(result.rows);
