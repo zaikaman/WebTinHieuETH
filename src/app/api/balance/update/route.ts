@@ -58,9 +58,10 @@ export async function POST() {
         const stopLossPercentage = stopLossDistance / signal.entry_price;
         const positionSize = riskAmount / stopLossPercentage;
         const priceDiff = signal.exit_price - signal.entry_price;
+        const percentageMove = priceDiff / signal.entry_price;
         const pnl = signal.type === 'LONG' ? 
-          (priceDiff / signal.entry_price) * positionSize :
-          (-priceDiff / signal.entry_price) * positionSize;
+          percentageMove * positionSize :
+          -percentageMove * positionSize;
 
         // Update total PnL
         totalPnlUsd += pnl;
