@@ -23,74 +23,61 @@ const formatNumber = (num: number | null | undefined): string => {
 
 export default function SignalsList() {
   const [signals, setSignals] = useState<Signal[]>([]);
-  const [selectedStatus, setSelectedStatus] = useState('all');
+  const [filter, setFilter] = useState('all');
   const [stats, setStats] = useState({
     active: 0,
-    completed: 0,
+    stopped: 0,
     winRate: 0
   });
 
-  // Function to fetch signals based on selected status
   const fetchSignals = async () => {
     try {
-      const response = await fetch(`/api/signals?status=${selectedStatus}`);
+      const response = await fetch(`/api/signals?status=${filter}`);
       if (!response.ok) throw new Error('Failed to fetch signals');
-      const fetchedSignals = await response.json();
-      setSignals(fetchedSignals);
-
-      // Update stats
-      const activeCount = fetchedSignals.filter((s: Signal) => s.status === 'ACTIVE').length;
-      const completedSignals = fetchedSignals.filter((s: Signal) => s.status === 'COMPLETED');
-      const completedCount = completedSignals.length;
-      const winRate = completedCount > 0 
-        ? (completedSignals.filter((s: Signal) => {
-            const currentPrice = s.current_price;
-            return (s.type === 'LONG' && currentPrice > s.entry_price) || 
-                   (s.type === 'SHORT' && currentPrice < s.entry_price);
-          }).length / completedCount * 100)
-        : 0;
-
+      const data = await response.json();
+      setSignals(data);
+      
+      // Calculate stats from all signals
+      const activeCount = data.filter(s => s.status === 'ACTIVE').length;
+      const stoppedCount = data.filter(s => s.status === 'STOPPED').length;
+      const stoppedSignals = data.filter(s => s.status === 'STOPPED');
+      const winningTrades = stoppedSignals.filter(s => parseFloat(s.profit) > 0).length;
+      const winRate = stoppedSignals.length > 0 ? (winningTrades / stoppedSignals.length * 100) : 0;
+      
       setStats({
         active: activeCount,
-        completed: completedCount,
-        winRate: Math.round(winRate)
+        stopped: stoppedCount,
+        winRate: winRate
       });
     } catch (error) {
       console.error('Error fetching signals:', error);
     }
   };
 
-  // Initial fetch and setup polling
   useEffect(() => {
     fetchSignals();
-    const interval = setInterval(fetchSignals, 5000); // Poll every 5 seconds
-
+    const interval = setInterval(fetchSignals, 5000); // Update every 5 seconds
     return () => clearInterval(interval);
-  }, [selectedStatus]);
+  }, [filter]);
 
   return (
-    <div className="w-full bg-gray-800/50 backdrop-blur-sm rounded-xl border border-gray-700 shadow-lg p-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+    <div className="bg-gray-800/50 backdrop-blur-sm rounded-xl border border-gray-700 shadow-lg overflow-hidden">
+      <div className="p-4 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-xl font-bold text-white mb-1">Trading Signals</h2>
-          <div className="flex gap-3 text-sm">
-            <span className="text-gray-400">Active: {stats.active}</span>
-            <span className="text-gray-400">Completed: {stats.completed}</span>
-            <span className="text-gray-400">Win Rate: {stats.winRate}%</span>
+          <h2 className="text-xl font-bold mb-1">Trading Signals</h2>
+          <div className="text-sm text-gray-400">
+            Active: {stats.active} Stopped: {stats.stopped} Win Rate: {stats.winRate.toFixed(0)}%
           </div>
         </div>
-        <div className="flex gap-2">
-          <select 
-            className="px-3 py-1.5 rounded-lg bg-gray-700 text-gray-300 border-0 focus:ring-2 focus:ring-green-500"
-            value={selectedStatus}
-            onChange={(e) => setSelectedStatus(e.target.value)}
-          >
-            <option value="all">All Signals</option>
-            <option value="active">Active</option>
-            <option value="completed">Completed</option>
-            <option value="stopped">Stopped</option>
-          </select>
-        </div>
+        <select
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+          className="bg-gray-700 text-white rounded-lg px-3 py-2 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          <option value="all">All Signals</option>
+          <option value="active">Active Only</option>
+          <option value="stopped">Stopped Only</option>
+        </select>
       </div>
 
       <div className="overflow-x-auto">
