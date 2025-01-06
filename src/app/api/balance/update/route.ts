@@ -11,14 +11,14 @@ const pool = new Pool({
 interface Signal {
   id: string;
   type: string;
-  entry_price: number;
-  exit_price: number;
+  entry_price: string;
+  exit_price: string | null;
   take_profit: number[];
-  stop_loss: number;
+  stop_loss: string;
   timestamp: string;
   status: string;
-  risk_percent: number;
-  current_price: number;
+  risk_percent: string;
+  current_price: string;
 }
 
 export async function POST() {
@@ -52,16 +52,34 @@ export async function POST() {
       if (signal.status === 'STOPPED' && signal.exit_price) {
         totalTrades++;
         
-        // Calculate PnL for this trade using fixed initial balance
-        const riskAmount = (INITIAL_BALANCE * signal.risk_percent) / 100;
-        const stopLossDistance = Math.abs(signal.entry_price - signal.stop_loss);
-        const stopLossPercentage = stopLossDistance / signal.entry_price;
-        const positionSize = riskAmount / stopLossPercentage;
-        const priceDiff = signal.exit_price - signal.entry_price;
-        const percentageMove = priceDiff / signal.entry_price;
+        // Convert string values to numbers
+        const entryPrice = parseFloat(signal.entry_price);
+        const exitPrice = parseFloat(signal.exit_price);
+        const stopLoss = parseFloat(signal.stop_loss);
+        const riskPercent = parseFloat(signal.risk_percent);
+        
+        // Calculate position size based on risk
+        const riskAmount = (INITIAL_BALANCE * riskPercent) / 100;
+        const stopLossDistance = Math.abs(entryPrice - stopLoss);
+        const positionSize = (riskAmount * entryPrice) / stopLossDistance;
+        
+        // Calculate PnL
+        const priceDiff = exitPrice - entryPrice;
         const pnl = signal.type === 'LONG' ? 
-          percentageMove * positionSize :
-          -percentageMove * positionSize;
+          (priceDiff / entryPrice) * positionSize :
+          (-priceDiff / entryPrice) * positionSize;
+
+        console.log('Trade calculation:', {
+          entryPrice,
+          exitPrice,
+          stopLoss,
+          riskPercent,
+          riskAmount,
+          stopLossDistance,
+          positionSize,
+          priceDiff,
+          pnl
+        });
 
         // Update total PnL
         totalPnlUsd += pnl;
