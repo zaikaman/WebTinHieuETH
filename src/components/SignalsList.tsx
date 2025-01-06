@@ -38,10 +38,10 @@ export default function SignalsList() {
       setSignals(data);
       
       // Calculate stats from all signals
-      const activeCount = data.filter(s => s.status === 'ACTIVE').length;
-      const stoppedCount = data.filter(s => s.status === 'STOPPED').length;
-      const stoppedSignals = data.filter(s => s.status === 'STOPPED');
-      const winningTrades = stoppedSignals.filter(s => parseFloat(s.profit) > 0).length;
+      const activeCount = data.filter((s: Signal) => s.status === 'ACTIVE').length;
+      const stoppedCount = data.filter((s: Signal) => s.status === 'STOPPED').length;
+      const stoppedSignals = data.filter((s: Signal) => s.status === 'STOPPED');
+      const winningTrades = stoppedSignals.filter((s: Signal) => s.profit !== null && s.profit > 0).length;
       const winRate = stoppedSignals.length > 0 ? (winningTrades / stoppedSignals.length * 100) : 0;
       
       setStats({
