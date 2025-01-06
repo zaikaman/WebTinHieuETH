@@ -53,11 +53,14 @@ export async function POST() {
         totalTrades++;
         
         // Calculate PnL for this trade using fixed initial balance
-        const positionSize = (INITIAL_BALANCE * signal.risk_percent) / 100;
+        const riskAmount = (INITIAL_BALANCE * signal.risk_percent) / 100;
+        const stopLossDistance = Math.abs(signal.entry_price - signal.stop_loss);
+        const stopLossPercentage = stopLossDistance / signal.entry_price;
+        const positionSize = riskAmount / stopLossPercentage;
         const priceDiff = signal.exit_price - signal.entry_price;
         const pnl = signal.type === 'LONG' ? 
-          ((priceDiff) / signal.entry_price) * positionSize :
-          ((-priceDiff) / signal.entry_price) * positionSize;
+          (priceDiff / signal.entry_price) * positionSize :
+          (-priceDiff / signal.entry_price) * positionSize;
 
         // Update total PnL
         totalPnlUsd += pnl;
