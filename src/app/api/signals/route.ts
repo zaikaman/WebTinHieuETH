@@ -181,36 +181,27 @@ export async function GET(request: Request) {
       status && status !== 'all' ? [status.toUpperCase()] : []
     );
 
-    // Update profit in database for completed trades
-    const stoppedSignals = result.rows.filter(signal => 
-      signal.status === 'STOPPED' && signal.exit_price && signal.profit !== null
+    // Find stopped trades that haven't been processed yet
+    const unprocessedSignals = result.rows.filter(signal => 
+      signal.status === 'STOPPED' && 
+      signal.exit_price && 
+      signal.profit !== null && 
+      !signal.updated
     );
 
-    if (stoppedSignals.length > 0) {
-      // Check which signals need profit updates
-      const profitUpdates = await Promise.all(
-        stoppedSignals.map(async signal => {
-          const currentProfit = await pool.query(
-            `SELECT profit FROM signals WHERE id = $1`,
-            [signal.id]
-          );
-          
-          // Only update if profit is null or different
-          if (!currentProfit.rows[0].profit || currentProfit.rows[0].profit !== signal.profit) {
-            await pool.query(
-              `UPDATE signals SET profit = $1 WHERE id = $2`,
-              [Number(signal.profit), signal.id]
-            );
-            return true;
-          }
-          return false;
-        })
+    if (unprocessedSignals.length > 0) {
+      // Update profits and mark as processed
+      await Promise.all(
+        unprocessedSignals.map(signal => 
+          pool.query(
+            `UPDATE signals SET profit = $1, updated = TRUE WHERE id = $2`,
+            [Number(signal.profit), signal.id]
+          )
+        )
       );
 
-      // Only update balance stats if any profits were actually updated
-      if (profitUpdates.some(updated => updated)) {
-        await updateBalanceStats();
-      }
+      // Update balance stats since we have new processed trades
+      await updateBalanceStats();
     }
 
     return NextResponse.json(result.rows);
