@@ -9,14 +9,21 @@ const pool = new Pool({
 });
 
 const updateBalanceStats = async () => {
+  // Get current balance first
+  const balanceResult = await pool.query(`
+    SELECT total_balance 
+    FROM balance 
+    ORDER BY timestamp DESC 
+    LIMIT 1
+  `);
+  const currentBalance = parseFloat(balanceResult.rows[0].total_balance);
+
   // Get all signals
   const signalsResult = await pool.query(`
     SELECT * FROM signals
     ORDER BY timestamp DESC
   `);
   const signals = signalsResult.rows;
-
-  const INITIAL_BALANCE = 10; // Fixed initial balance
 
   // Calculate statistics
   let totalPnlUsd = 0;
@@ -27,7 +34,7 @@ const updateBalanceStats = async () => {
   let totalFeesUsd = 0;
   let maxDrawdown = 0;
   let currentDrawdown = 0;
-  let peakBalance = INITIAL_BALANCE;
+  let peakBalance = currentBalance;
   let totalWinAmount = 0;
   let totalLossAmount = 0;
 
@@ -60,14 +67,14 @@ const updateBalanceStats = async () => {
       }
 
       // Calculate fees (0.01% per trade, charged on both entry and exit)
-      const riskAmount = (INITIAL_BALANCE * parseFloat(signal.risk_percent)) / 100;
+      const riskAmount = (currentBalance * parseFloat(signal.risk_percent)) / 100;
       const stopLossDistance = Math.abs(parseFloat(signal.entry_price) - parseFloat(signal.stop_loss));
       const positionSize = (riskAmount * parseFloat(signal.entry_price)) / stopLossDistance;
       const tradeFee = positionSize * 0.0001 * 2;  // 0.01% on entry and 0.01% on exit
       totalFeesUsd += tradeFee;
 
       // Update peak balance and drawdown
-      const currentTotalBalance = INITIAL_BALANCE + totalPnlUsd - totalFeesUsd;
+      const currentTotalBalance = currentBalance + totalPnlUsd - totalFeesUsd;
       if (currentTotalBalance > peakBalance) {
         peakBalance = currentTotalBalance;
       }
@@ -84,11 +91,11 @@ const updateBalanceStats = async () => {
   const averageWinUsd = winningTrades > 0 ? totalWinAmount / winningTrades : 0;
   const averageLossUsd = losingTrades > 0 ? totalLossAmount / losingTrades : 0;
   const riskRewardRatio = averageLossUsd > 0 ? averageWinUsd / averageLossUsd : 0;
-  const totalPnlPercentage = (totalPnlUsd / INITIAL_BALANCE) * 100;
-  const dailyPnlPercentage = (dailyPnlUsd / INITIAL_BALANCE) * 100;
+  const totalPnlPercentage = (totalPnlUsd / currentBalance) * 100;
+  const dailyPnlPercentage = (dailyPnlUsd / currentBalance) * 100;
 
   // Calculate available balance
-  const availableBalance = INITIAL_BALANCE + totalPnlUsd - totalFeesUsd;
+  const availableBalance = currentBalance + totalPnlUsd - totalFeesUsd;
 
   // Update balance record
   await pool.query(`
@@ -142,18 +149,25 @@ export async function GET(request: Request) {
     const status = searchParams.get('status');
 
     let query = `
+      WITH current_balance AS (
+        SELECT total_balance 
+        FROM balance 
+        ORDER BY timestamp DESC 
+        LIMIT 1
+      )
       SELECT s.*, 
         CASE 
           WHEN s.status = 'STOPPED' AND s.exit_price IS NOT NULL THEN
             CASE 
               WHEN s.type = 'LONG' THEN 
-                ((s.exit_price - s.entry_price) / s.entry_price) * ((10 * s.risk_percent / 100 * s.entry_price) / ABS(s.entry_price - s.stop_loss))
+                ((s.exit_price - s.entry_price) / s.entry_price) * ((b.total_balance * s.risk_percent / 100 * s.entry_price) / ABS(s.entry_price - s.stop_loss))
               ELSE 
-                ((s.entry_price - s.exit_price) / s.entry_price) * ((10 * s.risk_percent / 100 * s.entry_price) / ABS(s.entry_price - s.stop_loss))
+                ((s.entry_price - s.exit_price) / s.entry_price) * ((b.total_balance * s.risk_percent / 100 * s.entry_price) / ABS(s.entry_price - s.stop_loss))
             END
           ELSE NULL
         END as profit
       FROM signals s
+      CROSS JOIN current_balance b
     `;
 
     if (status && status !== 'all') {
