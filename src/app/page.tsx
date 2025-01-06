@@ -1,8 +1,60 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import TradingStats from '@/components/TradingStats';
 import TradingChart from '@/components/TradingChart';
 import SignalsList from '@/components/SignalsList';
-import TradingStats from '@/components/TradingStats';
+import { binanceService } from '@/services/binance';
+
+interface MarketStats {
+  price: string;
+  priceChangePercent: string;
+}
 
 export default function Home() {
+  const [stats, setStats] = useState<MarketStats>({
+    price: '0',
+    priceChangePercent: '0'
+  });
+
+  useEffect(() => {
+    // Initial fetch
+    const fetchInitialData = async () => {
+      try {
+        const marketData = await binanceService.getMarketData('ETHUSDT');
+        setStats({
+          price: marketData.ticker.lastPrice,
+          priceChangePercent: marketData.ticker.priceChangePercent
+        });
+      } catch (error) {
+        console.error('Error fetching initial market data:', error);
+      }
+    };
+
+    fetchInitialData();
+
+    // Subscribe to real-time updates
+    binanceService.subscribeToMiniTicker('ETHUSDT', (data) => {
+      const tickerData = data.data;
+      setStats({
+        price: tickerData.c,
+        priceChangePercent: ((parseFloat(tickerData.c) - parseFloat(tickerData.o)) / parseFloat(tickerData.o) * 100).toString()
+      });
+    });
+
+    // Cleanup
+    return () => {
+      binanceService.unsubscribe('ETHUSDT');
+    };
+  }, []);
+
+  const formatNumber = (value: string, decimals: number = 2) => {
+    return parseFloat(value).toLocaleString('en-US', {
+      minimumFractionDigits: decimals,
+      maximumFractionDigits: decimals
+    });
+  };
+
   return (
     <main className="min-h-screen bg-gray-900 text-white p-8">
       <div className="max-w-7xl mx-auto space-y-8">
@@ -18,8 +70,10 @@ export default function Home() {
           <div className="px-4 py-2 bg-gray-800/50 backdrop-blur-sm rounded-xl border border-gray-700">
             <div className="flex items-center gap-3">
               <span className="text-gray-400">ETHUSDT</span>
-              <span className="text-2xl font-bold text-green-400">$2,250.50</span>
-              <span className="text-green-400">+2.5%</span>
+              <span className="text-2xl font-bold text-white">${formatNumber(stats.price)}</span>
+              <span className={`${parseFloat(stats.priceChangePercent) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                {parseFloat(stats.priceChangePercent) >= 0 ? '+' : ''}{formatNumber(stats.priceChangePercent)}%
+              </span>
             </div>
           </div>
         </div>
