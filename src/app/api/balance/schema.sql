@@ -5,7 +5,6 @@ DROP TABLE IF EXISTS balance;
 CREATE TABLE balance (
     id SERIAL PRIMARY KEY,
     timestamp TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    total_balance NUMERIC NOT NULL,  -- Current total balance in USD
     available_balance NUMERIC NOT NULL,  -- Available balance (not in positions)
     total_pnl_usd NUMERIC NOT NULL DEFAULT 0,  -- Total profit/loss in USD
     total_pnl_percentage NUMERIC NOT NULL DEFAULT 0,  -- Total profit/loss percentage
@@ -20,18 +19,13 @@ CREATE TABLE balance (
     risk_reward_ratio NUMERIC NOT NULL DEFAULT 0,  -- Risk/Reward ratio
     max_drawdown NUMERIC NOT NULL DEFAULT 0,  -- Maximum drawdown percentage
     current_drawdown NUMERIC NOT NULL DEFAULT 0,  -- Current drawdown percentage
-    peak_balance NUMERIC NOT NULL,  -- Highest balance reached
     total_fees_paid NUMERIC NOT NULL DEFAULT 0,  -- Total trading fees paid
     total_funding_paid NUMERIC NOT NULL DEFAULT 0  -- Total funding fees paid
 );
 
 -- Insert initial record with starting balance of $10,000
 INSERT INTO balance (
-    total_balance,
-    available_balance,
-    peak_balance
+    available_balance
 ) VALUES (
-    10,  -- Starting with $10,000
-    10,  -- All available initially
-    10   -- Initial peak balance
+    10  -- Starting with $10,000
 ); 

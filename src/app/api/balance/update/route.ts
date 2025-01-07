@@ -41,7 +41,6 @@ export async function POST() {
     let totalFeesUsd = 0;
     let maxDrawdown = 0;
     let currentDrawdown = 0;
-    let peakBalance = INITIAL_BALANCE;
     let totalWinAmount = 0;
     let totalLossAmount = 0;
 
@@ -103,12 +102,9 @@ export async function POST() {
         const tradeFee = positionSize * 0.001;
         totalFeesUsd += tradeFee;
 
-        // Update peak balance and drawdown
-        const currentTotalBalance = INITIAL_BALANCE + totalPnlUsd - totalFeesUsd;
-        if (currentTotalBalance > peakBalance) {
-          peakBalance = currentTotalBalance;
-        }
-        const drawdown = ((peakBalance - currentTotalBalance) / peakBalance) * 100;
+        // Update drawdown
+        const currentBalance = INITIAL_BALANCE + totalPnlUsd - totalFeesUsd;
+        const drawdown = ((INITIAL_BALANCE - currentBalance) / INITIAL_BALANCE) * 100;
         if (drawdown > maxDrawdown) {
           maxDrawdown = drawdown;
         }
@@ -131,28 +127,25 @@ export async function POST() {
     await pool.query(`
       UPDATE balance 
       SET 
-        total_balance = $1,
-        available_balance = $2,
-        total_pnl_usd = $3,
-        total_pnl_percentage = $4,
-        daily_pnl_usd = $5,
-        daily_pnl_percentage = $6,
-        total_trades = $7,
-        winning_trades = $8,
-        losing_trades = $9,
-        win_rate = $10,
-        average_win_usd = $11,
-        average_loss_usd = $12,
-        risk_reward_ratio = $13,
-        max_drawdown = $14,
-        current_drawdown = $15,
-        peak_balance = $16,
-        total_fees_paid = $17,
-        total_funding_paid = $18,
+        available_balance = $1,
+        total_pnl_usd = $2,
+        total_pnl_percentage = $3,
+        daily_pnl_usd = $4,
+        daily_pnl_percentage = $5,
+        total_trades = $6,
+        winning_trades = $7,
+        losing_trades = $8,
+        win_rate = $9,
+        average_win_usd = $10,
+        average_loss_usd = $11,
+        risk_reward_ratio = $12,
+        max_drawdown = $13,
+        current_drawdown = $14,
+        total_fees_paid = $15,
+        total_funding_paid = $16,
         timestamp = CURRENT_TIMESTAMP
       WHERE id = (SELECT id FROM balance ORDER BY timestamp DESC LIMIT 1)
     `, [
-      availableBalance,
       availableBalance,
       totalPnlUsd,
       totalPnlPercentage,
@@ -167,7 +160,6 @@ export async function POST() {
       riskRewardRatio,
       maxDrawdown,
       currentDrawdown,
-      peakBalance,
       totalFeesUsd,
       0 // Funding fees (would need additional data to calculate)
     ]);
