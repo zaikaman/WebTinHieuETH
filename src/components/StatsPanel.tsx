@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 
 interface BalanceStats {
-  total_balance: number;
   available_balance: number;
   total_pnl_usd: number;
   total_pnl_percentage: number;
@@ -18,7 +17,6 @@ interface BalanceStats {
   risk_reward_ratio: number;
   max_drawdown: number;
   current_drawdown: number;
-  peak_balance: number;
   total_fees_paid: number;
   total_funding_paid: number;
 }
@@ -87,12 +85,8 @@ export default function StatsPanel() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Balance Section */}
         <div className="bg-gray-900/50 rounded-lg p-4">
-          <h3 className="text-gray-400 text-sm mb-1">Total Balance</h3>
-          <p className="text-white text-2xl font-bold">{formatUSD(stats.total_balance)}</p>
-          <p className="text-sm">
-            <span className="text-gray-400">Available: </span>
-            <span className="text-white">{formatUSD(stats.available_balance)}</span>
-          </p>
+          <h3 className="text-gray-400 text-sm mb-1">Available Balance</h3>
+          <p className="text-white text-2xl font-bold">{formatUSD(stats.available_balance)}</p>
         </div>
 
         {/* PnL Section */}
@@ -149,12 +143,6 @@ export default function StatsPanel() {
             <span className="text-gray-400">R/R: </span>
             <span className="text-white">{formatNumber(stats.risk_reward_ratio, 2)}</span>
           </p>
-        </div>
-
-        {/* Peak Balance Section */}
-        <div className="bg-gray-900/50 rounded-lg p-4">
-          <h3 className="text-gray-400 text-sm mb-1">Peak Balance</h3>
-          <p className="text-white text-2xl font-bold">{formatUSD(stats.peak_balance)}</p>
         </div>
 
         {/* Fees Section */}
