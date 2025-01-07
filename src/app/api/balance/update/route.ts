@@ -30,7 +30,8 @@ export async function POST() {
     `);
     const signals: Signal[] = signalsResult.rows;
 
-    const INITIAL_BALANCE = 10; // Fixed initial balance
+    const INITIAL_BALANCE = 10; // Fixed initial balance for risk calculation
+    const FIXED_RISK_BALANCE = 10; // Fixed $10 balance for risk calculation
 
     // Calculate statistics
     let totalPnlUsd = 0;
@@ -57,8 +58,8 @@ export async function POST() {
         const stopLoss = parseFloat(signal.stop_loss);
         const riskPercent = parseFloat(signal.risk_percent);
         
-        // Calculate position size based on risk
-        const riskAmount = (INITIAL_BALANCE * riskPercent) / 100;
+        // Calculate position size based on risk using fixed $10 balance
+        const riskAmount = (FIXED_RISK_BALANCE * riskPercent) / 100;
         const stopLossDistance = Math.abs(entryPrice - stopLoss);
         const positionSize = (riskAmount * entryPrice) / stopLossDistance;
         
